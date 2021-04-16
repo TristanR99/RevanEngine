@@ -33,7 +33,7 @@ class FirstApp {
   void recreateSwapChain();
   void recordCommandBuffer(int imageIndex);
 
-  RengWindow rengWindow{WIDTH, HEIGHT, "Tutorial 07"};
+  RengWindow rengWindow{WIDTH, HEIGHT, "Revan Engine"};
   RengDevice rengDevice{rengWindow};
   std::unique_ptr<RengSwapChain> rengSwapChain;
   std::unique_ptr<RengPipeline> rengPipeline;
