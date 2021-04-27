@@ -8,6 +8,7 @@
 // std lib headers
 #include <string>
 #include <vector>
+#include <memory>
 
 namespace reng {
 
@@ -16,6 +17,8 @@ class RengSwapChain {
   static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
   RengSwapChain(RengDevice &deviceRef, VkExtent2D windowExtent);
+  RengSwapChain(RengDevice &deviceRef, VkExtent2D windowExtent, std::shared_ptr<RengSwapChain> previous);
+
   ~RengSwapChain();
 
   RengSwapChain(const RengSwapChain &) = delete;
@@ -39,6 +42,7 @@ class RengSwapChain {
   VkResult submitCommandBuffers(const VkCommandBuffer *buffers, uint32_t *imageIndex);
 
  private:
+  void init();
   void createSwapChain();
   void createImageViews();
   void createDepthResources();
@@ -69,6 +73,7 @@ class RengSwapChain {
   VkExtent2D windowExtent;
 
   VkSwapchainKHR swapChain;
+  std::shared_ptr<RengSwapChain> oldSwapChain;
 
   std::vector<VkSemaphore> imageAvailableSemaphores;
   std::vector<VkSemaphore> renderFinishedSemaphores;
