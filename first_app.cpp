@@ -1,19 +1,22 @@
 #include "first_app.hpp"
 
+// libs
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
 // std
 #include <array>
+#include <cassert>
 #include <stdexcept>
 
 namespace reng {
 
-  struct SimplePushConstantData {
-    glm::vec2 offset;
-    alignas(16) glm::vec3 color;
-  };
+struct SimplePushConstantData {
+  glm::mat2 transform();
+  glm::vec2 offset;
+  alignas(16) glm::vec3 color;
+};
 
 FirstApp::FirstApp() {
   loadModels();
@@ -37,13 +40,12 @@ void FirstApp::loadModels() {
   std::vector<RengModel::Vertex> vertices{
       {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
       {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
-      };
+      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+      
   rengModel = std::make_unique<RengModel>(rengDevice, vertices);
 }
 
 void FirstApp::createPipelineLayout() {
-
   VkPushConstantRange pushConstantRange{};
   pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   pushConstantRange.offset = 0;
@@ -61,10 +63,29 @@ void FirstApp::createPipelineLayout() {
   }
 }
 
+void FirstApp::recreateSwapChain() {
+  auto extent = rengWindow.getExtent();
+  while (extent.width == 0 || extent.height == 0) {
+    extent = rengWindow.getExtent();
+    glfwWaitEvents();
+  }
+  vkDeviceWaitIdle(rengDevice.device());
+
+  if (rengSwapChain == nullptr) {
+    rengSwapChain = std::make_unique<RengSwapChain>(rengDevice, extent);
+  } else {
+    rengSwapChain = std::make_unique<RengSwapChain>(rengDevice, extent, std::move(rengSwapChain));
+    if (rengSwapChain->imageCount() != commandBuffers.size()) {
+      freeCommandBuffers();
+      createCommandBuffers();
+    }
+  }
+
+  createPipeline();
+}
 
 void FirstApp::createPipeline() {
   assert(rengSwapChain != nullptr && "Cannot create pipeline before swap chain");
-  //assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
   PipelineConfigInfo pipelineConfig{};
   RengPipeline::defaultPipelineConfigInfo(pipelineConfig);
@@ -75,28 +96,6 @@ void FirstApp::createPipeline() {
       "shaders/simple_shader.vert.spv",
       "shaders/simple_shader.frag.spv",
       pipelineConfig);
-}
-
-void FirstApp::recreateSwapChain(){
-  auto extent = rengWindow.getExtent();
-  while (extent.width == 0 || extent.height == 0) {
-    extent = rengWindow.getExtent();
-    glfwWaitEvents();
-  }
-
-  vkDeviceWaitIdle(rengDevice.device());
-
-  if (rengSwapChain == nullptr){
-    rengSwapChain = std::make_unique<RengSwapChain>(rengDevice, extent);
-  } else {
-    rengSwapChain = std::make_unique<RengSwapChain>(rengDevice, extent, std::move(rengSwapChain));
-    if(rengSwapChain->imageCount() != commandBuffers.size()) {
-      freeCommandBuffers();
-      createCommandBuffers();
-    }
-  }
-
-  createPipeline();
 }
 
 void FirstApp::createCommandBuffers() {
@@ -114,19 +113,18 @@ void FirstApp::createCommandBuffers() {
   }
 }
 
-void FirstApp::freeCommandBuffers(){
+void FirstApp::freeCommandBuffers() {
   vkFreeCommandBuffers(
-    rengDevice.device(), 
-    rengDevice.getCommandPool(), 
-    static_cast<uint32_t>(commandBuffers.size()), 
-    commandBuffers.data());
-
-    commandBuffers.clear();
+      rengDevice.device(),
+      rengDevice.getCommandPool(),
+      static_cast<uint32_t>(commandBuffers.size()),
+      commandBuffers.data());
+  commandBuffers.clear();
 }
 
-void FirstApp::recordCommandBuffer(int imageIndex){
-  static int frame = 0;
-  frame = (frame + 1) % 1000;
+void FirstApp::recordCommandBuffer(int imageIndex) {
+  static int frame = 30;
+  frame = (frame + 1) % 100;
 
   VkCommandBufferBeginInfo beginInfo{};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -165,24 +163,23 @@ void FirstApp::recordCommandBuffer(int imageIndex){
   rengPipeline->bind(commandBuffers[imageIndex]);
   rengModel->bind(commandBuffers[imageIndex]);
 
-  for(int j = 0; j < 4; j++){
-
+  for (int j = 0; j < 4; j++) {
     SimplePushConstantData push{};
-    push.offset = {-0.5 + frame * 0.002f, -0.4f + j * 0.25f};
+    push.offset = {-0.5f + frame * 0.02f, -0.4f + j * 0.25f};
     push.color = {0.0f, 0.0f, 0.2f + 0.2f * j};
 
     vkCmdPushConstants(
-      commandBuffers[imageIndex], 
-      pipelineLayout, 
-      VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
-      0, 
-      sizeof(SimplePushConstantData), 
-      &push);
-  
+        commandBuffers[imageIndex],
+        pipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        0,
+        sizeof(SimplePushConstantData),
+        &push);
     rengModel->draw(commandBuffers[imageIndex]);
   }
-  
+
   vkCmdEndRenderPass(commandBuffers[imageIndex]);
+
 
   if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {
     throw std::runtime_error("failed to record command buffer!");
@@ -193,7 +190,7 @@ void FirstApp::drawFrame() {
   uint32_t imageIndex;
   auto result = rengSwapChain->acquireNextImage(&imageIndex);
 
-  if(result == VK_ERROR_OUT_OF_DATE_KHR){
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     recreateSwapChain();
     return;
   }
@@ -204,13 +201,12 @@ void FirstApp::drawFrame() {
 
   recordCommandBuffer(imageIndex);
   result = rengSwapChain->submitCommandBuffers(&commandBuffers[imageIndex], &imageIndex);
-  if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || rengWindow.wasWindowResized()) {
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
+      rengWindow.wasWindowResized()) {
     rengWindow.resetWindowResizedFlag();
     recreateSwapChain();
     return;
-  }
-
-  if (result != VK_SUCCESS) {
+  } else if (result != VK_SUCCESS) {
     throw std::runtime_error("failed to present swap chain image!");
   }
 }

@@ -1,4 +1,3 @@
-  
 #pragma once
 
 #include "reng_device.hpp"

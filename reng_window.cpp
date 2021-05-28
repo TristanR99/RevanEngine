@@ -30,10 +30,11 @@ void RengWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR *surface)
   }
 }
 
-void RengWindow::framebufferResizeCallback(GLFWwindow *window, int width, int height){
-    auto lveWindow = reinterpret_cast<RengWindow *>(glfwGetWindowUserPointer(window));
-    lveWindow->frameBufferResized = true;
-    lveWindow->width = width;
-    lveWindow->height = height;
-  }
-}  // namespace reng
+void RengWindow::framebufferResizeCallback(GLFWwindow *window, int width, int height) {
+  auto rengWindow = reinterpret_cast<RengWindow *>(glfwGetWindowUserPointer(window));
+  rengWindow->framebufferResized = true;
+  rengWindow->width = width;
+  rengWindow->height = height;
+}
+
+}

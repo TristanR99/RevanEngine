@@ -16,8 +16,8 @@ class RengWindow {
 
   bool shouldClose() { return glfwWindowShouldClose(window); }
   VkExtent2D getExtent() { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
-  bool wasWindowResized() {return frameBufferResized; }
-  void resetWindowResizedFlag() { frameBufferResized = false; }
+  bool wasWindowResized() { return framebufferResized; }
+  void resetWindowResizedFlag() { framebufferResized = false; }
 
   void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
 
@@ -27,7 +27,7 @@ class RengWindow {
 
   int width;
   int height;
-  bool frameBufferResized;
+  bool framebufferResized = false;
 
   std::string windowName;
   GLFWwindow *window;
